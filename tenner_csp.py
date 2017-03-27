@@ -7,59 +7,94 @@ Construct and return Tenner Grid CSP models.
 
 from cspbase import *
 import itertools
-import re
-
-def var_from_entry(val, row, col):
-    '''
-    Takes a value in {-1,..,9} and row-col coordinates and returns a variable for it.
-    '''
-    if val == -1:
-        domain = list(range(10))
-    else:
-        domain = [val]
-    ret = Variable('({},{})'.format(row, col), domain=domain)
-
-    # Pre-filled values are already assigned
-    #    if val != -1:
-    #        ret.assign(val)
-
-    return ret
-
-def coords(var):
-    '''
-    Retrieves the coordinates from the name of var (hacky, I know).
-    '''
-    m = re.match('^.*\((\d+),(\d+)\)$', var.name)
-    return int(m.group(1)), int(m.group(2))
-
-def in_range(t1, t2):
-    t1 = tuple(t1)
-    t2 = tuple(t2)
-    if len(t1) != 2 or len(t2) != 2:
-        raise Exception('Must be coords in R2')
-    else:
-        # Return bottom 3 neighbours
-        return (t1[0]+1 == t2[0]) and abs(t1[1] - t2[1]) <= 1
-        # Return surrounding 8 neighbours
-        # return abs(t1[0] - t2[0]) <= 1 and abs(t1[1] - t2[1]) <= 1
-
-def neighbours_of(var, others):
-    '''
-    Gets neighbours of var in list others, as dictated by in_range predicate
-    '''
-    print('Finding neighbours of {}'.format(var))
-
-    center = coords(var)
-    print('Found coords of {var} to be {center}'.format(var=var, center=center))
-    neighbs = []
-    for v in others:
-        if in_range(center, coords(v)) and center != coords(v):
-            print('Variable {} is in range of center'.format(v))
-            neighbs.append(v)
-
-    return neighbs
 
 def tenner_csp_model_1(initial_tenner_board):
+    start_array = initial_tenner_board[0]
+    variable_array = [[Variable(str(i) + ',' + str(j), [n for n in range(10)]) for i in range(10)] for j in range(len(start_array))]
+    for i in range(0,len(start_array)):
+        for j in range(0,10):
+            if start_array[i][j] != -1:
+                variable_array[i][j]= Variable(str(i) + ',' + str(j), [start_array[i][j]])
+    flat = [x for sublist in variable_array for x in sublist]
+
+    csp = CSP("model_1", flat)
+    #row constraints
+
+    for row_num in range(len(variable_array)):
+        row = variable_array[row_num]
+        for i in range(len(row)):
+            for j in range(i+1, len(row)):
+                con = Constraint(str(row_num) + ',' + str(i) +';' + str(row_num) + ',' + str(j), [row[i],row[j]])
+                tuples = []
+                for t in itertools.product(row[i].domain(), row[j].domain()):
+                    if t[0] != t[1]:
+                        tuples.append(t)
+                con.add_satisfying_tuples(tuples)
+                csp.add_constraint(con)
+    #adjacent constraints
+    added_strings = []
+    for row_num in range(len(variable_array)):
+        row = variable_array[row_num]
+        for column_num in range(len(row)):
+            spot = (row_num,column_num)
+            for neighbor in neighbor_tuples(len(variable_array),len(row),spot):
+                v1 = (row_num, column_num)
+                v2 = neighbor
+                if v1[0] < v2[0]:
+                    v2 = v1
+                    v1 = neighbor
+                elif v1[0] == v2[0]:
+                    if v1[1] < v2[1]:
+                        v2 = v1
+                        v1 = neighbor
+                string = str(v1[0]) + ',' + str(v1[1]) +';' + str(v2[0]) + ',' + str(v2[1])   
+                if string in added_strings:
+                    continue
+                added_strings.append(string)
+                variable1 = variable_array[v1[0]][v1[1]]
+                variable2 = variable_array[v2[0]][v2[1]]
+                #TODO make it so it does not add unnessicary constraints
+
+                con = Constraint(string, [ variable1 , variable2 ] )
+                tuples = []
+                for t in itertools.product(variable1.domain(), variable2.domain()):
+                    if t[0] != t[1]:
+                        tuples.append(t)
+                con.add_satisfying_tuples(tuples)
+                csp.add_constraint(con)
+    #sum constraints
+    for column_num in range(10):
+
+        current_column = []
+        for row_num in range(len(variable_array)):
+            current_column.append(variable_array[row_num][column_num])
+        con = Constraint("column:" + str(column_num),current_column )
+
+        column_desired_sum = initial_tenner_board[1][column_num]
+        tuples = []
+        domains = []
+        for variable in current_column:
+            domains.append(variable.domain())
+        for t in itertools.product(*domains):
+            if sum(t) == column_desired_sum:
+                   tuples.append(t)
+        con.add_satisfying_tuples(tuples)
+        csp.add_constraint(con) 
+
+    
+    return csp, variable_array
+
+def neighbor_tuples(max_x, max_y, spot):
+    neighbors = []
+    for x in range(-1, 2):
+        for y in range(-1, 2):
+            new = (spot[0] + x, spot[1] + y)
+            if new != spot:
+                if -1 < new[0] < max_x:
+                    if -1 < new[1] < max_y:
+                        neighbors.append(new)
+    return neighbors
+
     '''Return a CSP object representing a Tenner Grid CSP problem along 
        with an array of variables for the problem. That is return
 
@@ -106,7 +141,7 @@ def tenner_csp_model_1(initial_tenner_board):
        
        This routine returns model_1 which consists of a variable for
        each cell of the board, with domain equal to {0-9} if the board
-       has a 0 at that position, and domain equal {i} if the board has
+       has a -1 at that position, and domain equal {i} if the board has
        a fixed number i at that cell.
        
        model_1 contains BINARY CONSTRAINTS OF NOT-EQUAL between
@@ -115,69 +150,96 @@ def tenner_csp_model_1(initial_tenner_board):
        model_1 also constains n-nary constraints of sum constraints for each 
        column.
     '''
-    # IMPLEMENT
-    # Basic inspection
-    print('Board')
-    for row in initial_tenner_board[0]:
-        print(row)
-    print('Solution')
-    print(initial_tenner_board[1])
+    
+#IMPLEMENT
 
-    # Create all variables
-    print('Creating variable array')
-    variable_array = []
-    for i, row in enumerate(initial_tenner_board[0]):
-        row_vars = []
-        for j, entry in enumerate(row):
-            var = var_from_entry(entry, i, j)
-            print('Adding var {} with assignment {}'.format(var, var.get_assigned_value()))
-            row_vars.append(var)
-            #print('Created variable {var.name} with domain {var.dom}'.format(var=var))
-        variable_array.append(row_vars)
-    print('Variable array (flattened): {}'.format(itertools.chain(*variable_array)))
-
-    csp = CSP('Model-1-CSP', vars=list(itertools.chain(*variable_array)))
-
-    # Create all-diff constraints
-    # One constraint per unassigned item
-    # for var in filter(lambda v: not v.is_assigned(), list(itertools.chain(*variable_array))):
-    for var in itertools.chain(*variable_array):
-        # Scope is all pairs from neighboring variables
-        neighbours = neighbours_of(var, itertools.chain(*variable_array))
-        for neighbour in neighbours:
-            c = Constraint(name=None, scope=[var, neighbour])
-            # Create satisfying tuples
-            # Only use values in domain of variable, neighbour
-            # c.add_satisfying_tuples(itertools.permutations(range(10), 2))
-            sat_tups = list(pair for pair in itertools.product(var.cur_domain(), neighbour.cur_domain()) if len(set(pair)) == len(pair))
-            print('Adding all-diff tuples {tups} for variables {vars}'.format(tups=sat_tups, vars=[var,neighbour]))
-            c.add_satisfying_tuples(sat_tups)
-            csp.add_constraint(c)
-
-    # Create row constraints
-    for row in variable_array:
-        for pair in itertools.combinations(row, 2):
-            print('Row pair is {}'.format(pair))
-            c = Constraint(name=None, scope=pair)
-            sat_tups = list(vals for vals in itertools.product(pair[0].cur_domain(), pair[1].cur_domain()) if len(set(vals)) == len(vals))
-            c.add_satisfying_tuples(sat_tups)
-            csp.add_constraint(c)
-
-    # Create sum constraints over columns
-    for col_num, col in enumerate(zip(*variable_array)):
-        domains = [list(var.cur_domain()) for var in col]
-        # All sums
-        sat_sums = [tup for tup in itertools.product(*domains) if sum(tup) == initial_tenner_board[1][col_num]]
-        print('Column {} needs to sum to {}'.format(col_num, initial_tenner_board[1][col_num]))
-        print('{} possible sums'.format(len(list(sat_sums))))
-        c = Constraint(name=None, scope=list(col))
-        c.add_satisfying_tuples(sat_sums)
-        csp.add_constraint(c)
-
-    print('csp = {}\nvariable_array = {}'.format(csp, variable_array))
-    return csp, variable_array
-
+##############################
+def all_unique(t):
+    seen = []
+    for element in t:
+        if element in seen:
+            return False
+        seen.append(element)
+    return True
 def tenner_csp_model_2(initial_tenner_board):
+    
+    start_array = initial_tenner_board[0]
+    variable_array = [[Variable(str(i) + ',' + str(j), [n for n in range(10)]) for i in range(10)] for j in range(len(start_array))]
+    for i in range(0,len(start_array)):
+        for j in range(0,10):
+            if start_array[i][j] != -1:
+                variable_array[i][j]= Variable(str(i) + ',' + str(j), [start_array[i][j]])
+    flat = [x for sublist in variable_array for x in sublist]
+
+    csp = CSP("model_2", flat)
+    #row constraints
+
+    for row_num in range(len(variable_array)):
+        row = variable_array[row_num]
+
+        con = Constraint("row:" +  str(row_num), row)
+        domains = []
+        for variable in row:
+            domains.append(variable.domain())
+            
+        tuples = []
+        for t in itertools.product(*domains):
+            if all_unique(t):
+                tuples.append(t)
+        con.add_satisfying_tuples(tuples)
+        csp.add_constraint(con)
+    #adjacent constraints
+    added_strings = []
+    for row_num in range(len(variable_array)):
+        row = variable_array[row_num]
+        for column_num in range(len(row)):
+            spot = (row_num,column_num)
+            for neighbor in neighbor_tuples(len(variable_array),len(row),spot):
+                v1 = (row_num, column_num)
+                v2 = neighbor
+                if v1[0] < v2[0]:
+                    v2 = v1
+                    v1 = neighbor
+                elif v1[0] == v2[0]:
+                    if v1[1] < v2[1]:
+                        v2 = v1
+                        v1 = neighbor
+                string = str(v1[0]) + ',' + str(v1[1]) +';' + str(v2[0]) + ',' + str(v2[1])   
+                if string in added_strings:
+                    continue
+                added_strings.append(string)
+                variable1 = variable_array[v1[0]][v1[1]]
+                variable2 = variable_array[v2[0]][v2[1]]
+                #TODO make it so it does not add unnessicary constraints
+
+                con = Constraint(string, [ variable1 , variable2 ] )
+                tuples = []
+                for t in itertools.product(variable1.domain(), variable2.domain()):
+                    if t[0] != t[1]:
+                        tuples.append(t)
+                con.add_satisfying_tuples(tuples)
+                csp.add_constraint(con)
+    #sum constraints
+    for column_num in range(10):
+
+        current_column = []
+        for row_num in range(len(variable_array)):
+            current_column.append(variable_array[row_num][column_num])
+        con = Constraint("column:" + str(column_num),current_column )
+
+        column_desired_sum = initial_tenner_board[1][column_num]
+        tuples = []
+        domains = []
+        for variable in current_column:
+            domains.append(variable.domain())
+        for t in itertools.product(*domains):
+            if sum(t) == column_desired_sum:
+                   tuples.append(t)
+        con.add_satisfying_tuples(tuples)
+        csp.add_constraint(con) 
+
+    
+    return csp, variable_array
     '''Return a CSP object representing a Tenner Grid CSP problem along 
        with an array of variables for the problem. That is return
 
@@ -218,89 +280,4 @@ def tenner_csp_model_2(initial_tenner_board):
        variables.
     '''
 
-    '''
-    README:
-    Because my part I is not working for unknown reasons (I've been staring at
-    it for the last two days straight, with no results), I'll just post some
-    notes here on how I _would_ do part II, and hope that suffices for some
-    portion of credit.
-
-    The difference between part I and part II is the all-diff n-ary constraint
-    on rows. In part I, the binary all-diff constraints are generated with a
-    set of tuples for every pair of variables, such that the values were
-    different. This was achieved with:
-        itertools.permutations(range(10), 2)
-
-    To replace this with an n-ary constraint, there should be a single constraint
-    over each row (as opposed to each pair of unique elements in a row), and that
-    can be done with the following generator:
-        (tup for tup in itertools.product(*domains) if len(set(tup)) == len(tup))
-    This conditional ensures uniqueness of elements. If there are any duplicate
-    elements in tup, the set will not consider them, leaving a smaller length.
-
-    This is the only change necessary. The following code reflects this change.
-
-    JK. Now it works!
-    '''
-    # Basic inspection
-    print('Board')
-    for row in initial_tenner_board[0]:
-        print(row)
-    print('Solution')
-    print(initial_tenner_board[1])
-
-    # Create all variables
-    print('Creating variable array')
-    variable_array = []
-    for i, row in enumerate(initial_tenner_board[0]):
-        row_vars = []
-        for j, entry in enumerate(row):
-            var = var_from_entry(entry, i, j)
-            #print('Adding var {} with assignment {}'.format(var, var.get_assigned_value()))
-            row_vars.append(var)
-            #print('Created variable {var.name} with domain {var.dom}'.format(var=var))
-        variable_array.append(row_vars)
-    print('Variables (flattened): {}'.format(list(itertools.chain(*variable_array))))
-
-    csp = CSP('Model-1-CSP', vars=list(itertools.chain(*variable_array)))
-
-    # Create all-diff constraints
-    # One constraint per unassigned item
-    # for var in filter(lambda v: not v.is_assigned(), list(itertools.chain(*variable_array))):
-    for var in itertools.chain(*variable_array):
-        # Scope is all pairs from neighboring variables
-        neighbours = neighbours_of(var, list(itertools.chain(*variable_array)))
-        for neighbour in neighbours:
-            c = Constraint(name=None, scope=[var, neighbour])
-            # Create satisfying tuples
-            # Only use values in domain of variable, neighbour
-            # c.add_satisfying_tuples(itertools.permutations(range(10), 2))
-            sat_tups = list(pair for pair in itertools.product(var.cur_domain(), neighbour.cur_domain()) if pair[0] != pair[1])
-            #print('Adding all-diff tuples {tups} for variables {vars}'.format(tups=sat_tups, vars=[var,neighbour]))
-            c.add_satisfying_tuples(sat_tups)
-            csp.add_constraint(c)
-
-    # Create row constraints
-    for row in variable_array:
-        domains = [list(var.cur_domain()) for var in row]
-        c = Constraint(name=None, scope=row)
-        c.add_satisfying_tuples(list(tup for tup in itertools.product(*domains) if len(set(tup)) == len(tup)))
-        csp.add_constraint(c)
-
-    # Create sum constraints over columns
-    for col_num, col in enumerate(zip(*variable_array)):
-        domains = [list(var.cur_domain()) for var in col]
-        # All sums
-        sat_sums = [tup for tup in itertools.product(*domains) if sum(tup) == initial_tenner_board[1][col_num]]
-        #print('Column {} needs to sum to {}'.format(col_num, initial_tenner_board[1][col_num]))
-        #print('{} possible sums'.format(len(list(sat_sums))))
-        c = Constraint(name=None, scope=list(col))
-        c.add_satisfying_tuples(sat_sums)
-        csp.add_constraint(c)
-
-    print('Returning CSP ')
-    csp.print_all()
-    print('Returning variable_array {}'.format(variable_array))
-    for var in csp.get_all_vars():
-        print(var, var.is_assigned(), '\n')
-    return csp, variable_array
+#IMPLEMENT

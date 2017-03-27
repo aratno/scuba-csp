@@ -1,8 +1,6 @@
 #Look for #IMPLEMENT tags in this file. These tags indicate what has
 #to be implemented to complete problem solution.  
 
-import itertools
-
 '''This file will contain different constraint propagators to be used within 
    bt_search.
 
@@ -79,86 +77,57 @@ def prop_BT(csp, newVar=None):
     return True, []
 
 def prop_FC(csp, newVar=None):
-    # IMPLEMENT
-    # See algo from csc384w17-Lecture04-BTSearch.pdf p. 51
-
-    # Return values
-    has_no_deadend = True
+    constraints = []
     pruned = []
-
-    if not newVar:
-        # "If newVar is none, check all constraints" with one unasgn var
-        constraints = list(filter(lambda cons: cons.get_n_unasgn() == 1, csp.get_all_cons()))
+    if newVar is None:
+        constraints = csp.get_all_cons()
     else:
-        # Only use constraints that include newVar
-        constraints = list(filter(lambda cons: cons.get_n_unasgn() == 1, csp.get_cons_with_var(newVar)))
-    #print('Found {} valid constraints: {}'.format(len(constraints), constraints))
+        constraints = csp.get_cons_with_var(newVar)
+    constraints = list(filter(lambda e: e.get_n_unasgn() == 1, constraints))
+    for constraint in constraints:
+        unassignedVariable = constraint.get_unasgn_vars()[0]
+        for d in unassignedVariable.cur_domain():
+            if not constraint.has_support(unassignedVariable,d):
+                unassignedVariable.prune_value(d)
+                pruned.append((unassignedVariable,d))
+        if unassignedVariable.cur_domain_size() == 0:
+            return False, pruned
+    return True, pruned
+    '''Do forward checking. That is check constraints with 
+       only one uninstantiated variable. Remember to keep 
+       track of all pruned variable,value pairs and return '''
 
-    for c in constraints:
-        # Check that uninit variable in c still has feasible values
-        uninit_var = c.get_unasgn_vars()[0]
-        #print('Using variable {} for constraint {}'.format(uninit_var, c))
-        for uninit_d in uninit_var.cur_domain():
-            if not c.has_support(uninit_var, uninit_d):
-                uninit_var.prune_value(uninit_d)
-                pruned.append((uninit_var, uninit_d))
+    
+       
+#IMPLEMENT
+def enforce_GAC(csp, gac_queue):
+    pruned = []
+    while len(gac_queue) != 0:
+        constraint  = gac_queue.pop(0)
+        for variable in constraint.get_unasgn_vars():
+            for d in variable.cur_domain():
+                if not constraint.has_support(variable,d):
+                    variable.prune_value(d)
+                    pruned.append((variable,d))
+                    if variable.cur_domain_size() == 0:
+                        return False, pruned
+                    affected = csp.get_cons_with_var(variable)
+                    for c in affected:
+                        if c not in gac_queue:
+                            gac_queue.append(c)
+    return True, pruned
 
-        if uninit_var.cur_domain_size() == 0:
-            has_no_deadend = False
-            return has_no_deadend, pruned
-
-    # Otherwise, return no deadend and successful prunings
-    return has_no_deadend, pruned
-
+                    
 def prop_GAC(csp, newVar=None):
-    # IMPLEMENT
-    # See algo from csc384w17-Lecture04-BTSearch.pdf p. 98
-
-    # Return values
-    has_no_deadend = True
+    constraints = []
     pruned = []
-
-    # GAC queue
-    q = []
-
-    if not newVar:
-        # Check all constraints
-        q.extend(csp.get_all_cons())
+    if newVar is None:
+        constraints = csp.get_all_cons()
     else:
-        # Only check constraints with newVar in scope
-        q.extend(csp.get_cons_with_var(newVar))
-
-    # Initial GAC enforce
-    while q:
-        c = q.pop(0)
-        for v in c.get_scope():
-            for d in v.cur_domain():
-                sat = False
-
-                doms = []
-                for aux_var in c.get_scope():
-                    if aux_var == v:
-                        doms.append([d])
-                    else:
-                        doms.append(aux_var.cur_domain())
-
-                for vals in itertools.product(*doms):
-                    if c.check(vals):
-                        sat = True
-
-                if not sat:
-                    v.prune_value(d)
-                    pruned.append((v, d))
-                    #print(pruned)
-                    if v.cur_domain_size() == 0:
-                        # DWO
-                        has_no_deadend = False
-                        return has_no_deadend, pruned
-                    else:
-                        # Add next constraints to queue
-                        for c in csp.get_cons_with_var(v):
-                            if c not in q:
-                                q.append(c)
-    # No DWO found, all constraints traversed
-    return has_no_deadend, pruned
-
+        constraints = csp.get_cons_with_var(newVar)
+    return enforce_GAC(csp, constraints)
+    '''Do GAC propagation. If newVar is None we do initial GAC enforce 
+       processing all constraints. Otherwise we do GAC enforce with
+       constraints containing newVar on GAC Queue'''
+       
+#IMPLEMENT
