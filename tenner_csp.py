@@ -24,12 +24,8 @@ def tenner_csp_model_1(initial_tenner_board):
         row = variable_array[row_num]
         for i in range(len(row)):
             for j in range(i+1, len(row)):
-                con = Constraint(str(row_num) + ',' + str(i) +';' + str(row_num) + ',' + str(j), [row[i],row[j]])
-                tuples = []
-                for t in itertools.product(row[i].domain(), row[j].domain()):
-                    if t[0] != t[1]:
-                        tuples.append(t)
-                con.add_satisfying_tuples(tuples)
+                pred = (lambda a, b: all(a in row[i].domain(), b in row[j].domain(), a != b))
+                con = Constraint(str(row_num) + ',' + str(i) +';' + str(row_num) + ',' + str(j), [row[i],row[j]], pred)
                 csp.add_constraint(con)
     #adjacent constraints
     added_strings = []
@@ -55,20 +51,19 @@ def tenner_csp_model_1(initial_tenner_board):
                 variable2 = variable_array[v2[0]][v2[1]]
                 #TODO make it so it does not add unnessicary constraints
 
-                con = Constraint(string, [ variable1 , variable2 ] )
-                tuples = []
-                for t in itertools.product(variable1.domain(), variable2.domain()):
-                    if t[0] != t[1]:
-                        tuples.append(t)
-                con.add_satisfying_tuples(tuples)
+                pred = (lambda a, b: all(a in variable1.domain(), b in variable2.domain(), a != b))
+                con = Constraint(string, [variable1, variable2], pred)
                 csp.add_constraint(con)
+
     #sum constraints
     for column_num in range(10):
 
         current_column = []
         for row_num in range(len(variable_array)):
             current_column.append(variable_array[row_num][column_num])
-        con = Constraint("column:" + str(column_num),current_column )
+        # TODO: This is a complex line, let me know if you want clarifications.
+        pred = (lambda *args: (all(val in var.domain() for val, var in zip(args, current_column))) and (sum(args) == initial_tenner_board[1][column_num]))
+        con = Constraint("column:" + str(column_num), current_column, pred)
 
         column_desired_sum = initial_tenner_board[1][column_num]
         tuples = []
@@ -177,7 +172,8 @@ def tenner_csp_model_2(initial_tenner_board):
     for row_num in range(len(variable_array)):
         row = variable_array[row_num]
 
-        con = Constraint("row:" +  str(row_num), row)
+        pred = (lambda *args: all(val in var.domain() for val, var in zip(args, row)) and len(set(args)) == len(args))
+        con = Constraint("row:" +  str(row_num), row, pred)
         domains = []
         for variable in row:
             domains.append(variable.domain())
@@ -212,7 +208,8 @@ def tenner_csp_model_2(initial_tenner_board):
                 variable2 = variable_array[v2[0]][v2[1]]
                 #TODO make it so it does not add unnessicary constraints
 
-                con = Constraint(string, [ variable1 , variable2 ] )
+                pred = (lambda a, b: all(a in variable1.domain(), b in variable2.domain()) and a != b)
+                con = Constraint(string, [variable1, variable2], pred)
                 tuples = []
                 for t in itertools.product(variable1.domain(), variable2.domain()):
                     if t[0] != t[1]:

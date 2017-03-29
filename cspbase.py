@@ -219,9 +219,6 @@ class Constraint:
         # Predicate must accept the right number of variables as arguments
         if len(inspect.getargspec(pred).args) != len(scope):
             raise Exception('Constraint predicate arity mismatch: scope contains incorrect number of variables')
-        # Predicate must not be variadic
-        if len(inspect.getargspec(pred).varargs) != 0:
-            raise Exception('Constraint predicate must not be variadic')
 
         self.pred = pred
 
