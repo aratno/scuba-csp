@@ -8,25 +8,24 @@ Created on Thu Mar 30 16:49:40 2017
     
 import signal
 
+import puzzles
 
 def try_to_solve(initial_sudoku_puzzle):
 
     for row in rows(inital_sudoku_puzzle):
-        if len(set(row)) != len(row):
+        if len(set(cell for cell in row if cell != 0)) != len(cell for cell in row if cell != 0):
             return False
     for column in columns(inital_sudoku_puzzle):
-        if len(set(column)) != len(column):
+        if len(set(cell for cell in column if cell != 0)) != len(cell for cell in column if cell != 0):
             return False
     for cage in cages(inital_sudoku_puzzle):
-        if len(set(cage)) != len(cage):
+        if len(set(cell for cell in cage if cell != 0)) != len(cell for cell in cage if cell != 0):
             return False
         
-    model = sudoku_model_1(inital_sudoku_puzzle)
+    csp = sudoku_model_1(inital_sudoku_puzzle)
     
-    csp = model
     solver = BT(csp)
     solver.bt_search(prop_GAC)
-        
     
 def sudoku_model_1(initial_sudoku_puzzle):
     
@@ -48,7 +47,6 @@ def sudoku_model_1(initial_sudoku_puzzle):
     add_array_constraint(cage_array, csp, "cage")
     
     return csp
-
     
 def add_array_constraint(array, csp, name):
     for position in range(len(array)):
@@ -66,16 +64,7 @@ def add_array_constraint(array, csp, name):
         con.add_satisfying_tuples(tuples)
         csp.add_constraint(con)
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
+# Stolen from StackOverflow
 class timeout:
     def __init__(self, seconds=1, error_message='Timeout'):
         self.seconds = seconds
@@ -87,3 +76,7 @@ class timeout:
         signal.alarm(self.seconds)
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
+
+if __name__ == '__main__':
+    puzzle = puzzles.test_problem_1
+    try_to_solve(puzzle)
