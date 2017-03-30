@@ -86,8 +86,24 @@ def cages(puzzle):
             yield tuple([puzzle[0+offset], puzzle[1+offset], puzzle[2+offset],
                     puzzle[9+offset], puzzle[10+offset], puzzle[11+offset],
                     puzzle[18+offset], puzzle[19+offset], puzzle[20+offset]])
+    
+def puzzle_from_cages(cages):
+    puzzle = [-1 for i in range(81)]
+    for cage_num in range(0, 9):
+        offset = 3 * (cage_num % 3) + 27 * (cage_num // 3)
+        puzzle[0+offset] = cages[cage_num][0]
+        puzzle[1+offset] = cages[cage_num][1]
+        puzzle[2+offset] = cages[cage_num][2]
+        puzzle[9+offset] = cages[cage_num][3]
+        puzzle[10+offset] = cages[cage_num][4]
+        puzzle[11+offset] = cages[cage_num][5]
+        puzzle[18+offset] = cages[cage_num][6]
+        puzzle[19+offset] = cages[cage_num][7]
+        puzzle[20+offset] = cages[cage_num][8]
+    return puzzle
 
 if __name__ == '__main__':
     import pprint
     pprint.pprint(list(rows(test_problem_1)))
     pprint.pprint(list(cages(test_problem_1)))
+    pprint.pprint(test_problem_1 == list(puzzle_from_cages(list(cages(test_problem_1)))))
