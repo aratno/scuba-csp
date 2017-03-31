@@ -8,34 +8,35 @@ Created on Thu Mar 30 16:49:40 2017
     
 import signal
 
-import puzzles
+from cspbase import *
+from puzzles import *
+from propagators import *
 
 def try_to_solve(initial_sudoku_puzzle):
-
-    for row in rows(inital_sudoku_puzzle):
-        if len(set(cell for cell in row if cell != 0)) != len(cell for cell in row if cell != 0):
+    for row in rows(initial_sudoku_puzzle):
+        if len(set(cell for cell in row if cell != 0)) != len([cell for cell in row if cell != 0]):
             return False
-    for column in columns(inital_sudoku_puzzle):
-        if len(set(cell for cell in column if cell != 0)) != len(cell for cell in column if cell != 0):
+    for column in columns(initial_sudoku_puzzle):
+        if len(set(cell for cell in column if cell != 0)) != len([cell for cell in column if cell != 0]):
             return False
-    for cage in cages(inital_sudoku_puzzle):
-        if len(set(cell for cell in cage if cell != 0)) != len(cell for cell in cage if cell != 0):
+    for cage in cages(initial_sudoku_puzzle):
+        if len(set(cell for cell in cage if cell != 0)) != len([cell for cell in cage if cell != 0]):
             return False
         
-    csp = sudoku_model_1(inital_sudoku_puzzle)
+    csp = sudoku_model_1(initial_sudoku_puzzle)
     
     solver = BT(csp)
     solver.bt_search(prop_GAC)
     
 def sudoku_model_1(initial_sudoku_puzzle):
     
-    variable_array = [Variable(str(i) ,initial_sudoku_puzzle[i]) for i in range(len(initial_sudoku_puzzle))]
+    variable_array = [Variable(str(i), [initial_sudoku_puzzle[i]]) for i in range(len(initial_sudoku_puzzle))]
 
-    for i in range(variable_array):
+    for i in range(len(variable_array)):
         if initial_sudoku_puzzle[i] == 0:
-                variable_array[i]= Variable(str(i) , [n for n in range(1,9)])
+                variable_array[i]= Variable(str(i) , [n for n in range(1,10)])
 
-    csp = CSP("model_2", variable_array)
+    csp = CSP("Sudoku_model_1", variable_array)
     #row constraints
     row_array = rows(variable_array)
     add_array_constraint(row_array, csp, "row")
@@ -48,9 +49,16 @@ def sudoku_model_1(initial_sudoku_puzzle):
     
     return csp
     
+def all_unique(t):
+    seen = []
+    for element in t:
+        if element in seen:
+            return False
+        seen.append(element)
+    return True
+
 def add_array_constraint(array, csp, name):
-    for position in range(len(array)):
-        subarray = array[position]
+    for position, subarray in enumerate(array):
 
         con = Constraint(name +  str(position), subarray)
         domains = []
@@ -78,5 +86,5 @@ class timeout:
         signal.alarm(0)
 
 if __name__ == '__main__':
-    puzzle = puzzles.test_problem_1
+    puzzle = test_problem_1
     try_to_solve(puzzle)
