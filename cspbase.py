@@ -1,5 +1,6 @@
 import time
 import functools
+import random
 
 '''Constraint Satisfaction Routines
    A) class Variable
@@ -508,6 +509,7 @@ class BT:
 
         print("bt_search finished")
         self.print_stats()
+        return status
 
     def bt_recurse(self, propagator, level):
         '''Return true if found solution. False if still need to search.

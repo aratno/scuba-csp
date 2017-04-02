@@ -7,12 +7,52 @@ Created on Thu Mar 30 16:49:40 2017
 """
     
 import signal
+import itertools
+import random
+import pprint
+import functools
+from datetime import datetime
 
 from cspbase import *
 from puzzles import *
 from propagators import *
 
 def try_to_solve(initial_sudoku_puzzle):
+    csp = sudoku_model_1(initial_sudoku_puzzle)
+    
+    solver = BT(csp)
+    return solver.bt_search(prop_GAC) , csp
+ 
+def sudoku_model_1(initial_sudoku_puzzle):
+    print('Creating variables...')
+    variable_array = [Variable(str(i), [initial_sudoku_puzzle[i]]) for i in range(len(initial_sudoku_puzzle))]
+
+    for i in range(len(variable_array)):
+        if initial_sudoku_puzzle[i] == 0:
+                variable_array[i]= Variable(str(i) , [n for n in range(1,10)])
+    print('Done creating variables.')
+
+    csp = CSP("Sudoku_model_1", variable_array)
+    
+    #row constraints
+    print('Adding row constraints...')
+    row_array = rows(variable_array)
+    add_array_constraint(row_array, csp, "row")
+    
+    #column constraints  
+    print('Adding column constraints...')
+    column_array = columns(variable_array)
+    add_array_constraint(column_array, csp, "column")
+    
+    #cage constraints
+    print('Adding cage constraints...')
+    cage_array = cages(variable_array)
+    add_array_constraint(cage_array, csp, "cage")
+    
+    print('Generated CSP with {} satisfying tuples'.format(functools.reduce(lambda ac, v: ac + len(v), list(map(lambda c: c.sat_tuples, csp.get_all_cons())), 0)))
+    return csp
+    
+def verify(initial_sudoku_puzzle):
     for row in rows(initial_sudoku_puzzle):
         if len(set(cell for cell in row if cell != 0)) != len([cell for cell in row if cell != 0]):
             return False
@@ -22,33 +62,63 @@ def try_to_solve(initial_sudoku_puzzle):
     for cage in cages(initial_sudoku_puzzle):
         if len(set(cell for cell in cage if cell != 0)) != len([cell for cell in cage if cell != 0]):
             return False
-        
-    csp = sudoku_model_1(initial_sudoku_puzzle)
+    return True
     
-    solver = BT(csp)
-    solver.bt_search(prop_GAC)
-    
-def sudoku_model_1(initial_sudoku_puzzle):
-    
-    variable_array = [Variable(str(i), [initial_sudoku_puzzle[i]]) for i in range(len(initial_sudoku_puzzle))]
 
-    for i in range(len(variable_array)):
-        if initial_sudoku_puzzle[i] == 0:
-                variable_array[i]= Variable(str(i) , [n for n in range(1,10)])
+   
 
-    csp = CSP("Sudoku_model_1", variable_array)
-    #row constraints
-    row_array = rows(variable_array)
-    add_array_constraint(row_array, csp, "row")
-    #column constraints  
-    column_array = columns(variable_array)
-    add_array_constraint(column_array, csp, "column")
-    #cage constraints
-    cage_array = cages(variable_array)
-    add_array_constraint(cage_array, csp, "cage")
+def two_in_everything(initial_sudoku_puzzle):
+    for row in rows(initial_sudoku_puzzle):
+        if len([cell for cell in row if cell != 0]) < 2:
+            return False
+    for column in columns(initial_sudoku_puzzle):
+        if len([cell for cell in column if cell != 0]) < 2:
+            return False
+    for cage in cages(initial_sudoku_puzzle):
+        if len([cell for cell in cage if cell != 0]) < 2:
+            return False
+    return True
+
+def create_random_diagonal_puzzle():
+    return puzzle_from_cages([random.choice(list(itertools.permutations(range(1, 10)))),
+                               list(itertools.repeat(0, 9)),
+                               list(itertools.repeat(0, 9)),
+                               list(itertools.repeat(0, 9)),
+                               random.choice(list(itertools.permutations(range(1, 10)))),
+                               list(itertools.repeat(0, 9)),
+                               list(itertools.repeat(0, 9)),
+                               list(itertools.repeat(0, 9)),
+                               random.choice(list(itertools.permutations(range(1, 10))))])
+
+def zero_diagonal(puzzle):
+    puzzle_rows = list(rows(puzzle))
+    for i in range(9):
+        puzzle_rows[i][i] = 0
+    return list(itertools.chain.from_iterable(puzzle_rows))
+
+def shift_diagonal_puzzle(puzzle):
+    puzzle_rows = list(rows(puzzle))
+    puzzle_rows[0], puzzle_rows[3], puzzle_rows[6] = puzzle_rows[3], puzzle_rows[6], puzzle_rows[0]
+    puzzle_rows[2], puzzle_rows[5], puzzle_rows[8] = puzzle_rows[8], puzzle_rows[2], puzzle_rows[5]
+    return list(itertools.chain.from_iterable(puzzle_rows))
     
-    return csp
-    
+
+def create_random_puzzle():
+    #puzzle = create_random_diagonal_puzzle()
+    puzzle = list(itertools.repeat(0, 81))
+    while not two_in_everything(puzzle):
+        candidates = list(map(lambda m: m[0], filter(lambda f: f[1] == 0, enumerate(puzzle))))
+        elected = random.choice(candidates)
+        print('Elected position {}'.format(elected))
+        puzzle[elected] = random.randint(1, 9)
+        if not verify(puzzle):
+            print('Position {} with value {} is invalid'.format(elected, puzzle[elected]))
+            puzzle[elected] = 0
+        pprint.pprint(list(rows(puzzle)))
+    num_generated = len(list(filter(lambda f: f != 0, puzzle)))
+    print('Generated puzzle with {} additional values'.format(num_generated))
+    return puzzle
+
 def all_unique(t):
     seen = []
     for element in t:
@@ -86,5 +156,27 @@ class timeout:
         signal.alarm(0)
 
 if __name__ == '__main__':
-    puzzle = test_problem_1
-    try_to_solve(puzzle)
+    pzs = []
+    while len(pzs) < 5:
+        print('Starting puzzle at {}'.format(datetime.now()))
+        puzzle = create_random_diagonal_puzzle()
+        puzzle = zero_diagonal(puzzle)
+        puzzle = shift_diagonal_puzzle(puzzle)
+   
+        status, csp = try_to_solve(puzzle)
+    
+        if status:
+            puzzle = list(itertools.repeat(0, 81))
+
+            for i,v in enumerate(csp.vars):
+                puzzle[i] =  v.get_assigned_value()
+            pzs.append(puzzle)
+            print('Puzzle synthesis succeeded')
+        else:
+            print('Puzzle synthesis failed')
+        print('Finishing puzzle at {}'.format(datetime.now()))
+
+        
+    for p in pzs:
+        print(p)
+    
