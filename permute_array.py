@@ -11,7 +11,6 @@ def make_mixer():
     random.shuffle(a)
     random.shuffle(b)
     mixer = dict(list(zip(a, b)))
-    print(mixer)
     return mixer
 
 def permute_array(arr):

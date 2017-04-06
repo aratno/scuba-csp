@@ -16,6 +16,8 @@ from datetime import datetime
 from cspbase import *
 from puzzles import *
 from propagators import *
+from permute_array import permute_array
+
 
 def try_to_solve(initial_sudoku_puzzle):
     csp = sudoku_model_1(initial_sudoku_puzzle)
@@ -215,6 +217,14 @@ def t():
     for p in pzs:
         print(p)
 if __name__ == '__main__':
-    with timeout(seconds = 60*30):
-        t()
+    puzzle = permute_array(create_random_permuted_puzzle(test_solution_1))
+    pprint.pprint(list(rows(puzzle)))
+    print(verify(puzzle))
+    puzzle = permute_array(create_random_permuted_puzzle(test_solution_1))
+    pprint.pprint(list(rows(puzzle)))
+    print(verify(puzzle))
+    puzzle = permute_array(create_random_permuted_puzzle(test_solution_1))
+    pprint.pprint(list(rows(puzzle)))
+    print(verify(puzzle))
+    
     
