@@ -109,14 +109,13 @@ def create_random_puzzle():
     while not two_in_everything(puzzle):
         candidates = list(map(lambda m: m[0], filter(lambda f: f[1] == 0, enumerate(puzzle))))
         elected = random.choice(candidates)
-        print('Elected position {}'.format(elected))
+        #print('Elected position {}'.format(elected))
         puzzle[elected] = random.randint(1, 9)
         if not verify(puzzle):
-            print('Position {} with value {} is invalid'.format(elected, puzzle[elected]))
+            #print('Position {} with value {} is invalid'.format(elected, puzzle[elected]))
             puzzle[elected] = 0
-        pprint.pprint(list(rows(puzzle)))
     num_generated = len(list(filter(lambda f: f != 0, puzzle)))
-    print('Generated puzzle with {} additional values'.format(num_generated))
+    #print('Generated puzzle with {} additional values'.format(num_generated))
     return puzzle
 
 def all_unique(t):
@@ -155,19 +154,20 @@ class timeout:
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
 
-if __name__ == '__main__':
+def t():
     pzs = []
     while len(pzs) < 5:
         print('Starting puzzle at {}'.format(datetime.now()))
         puzzle = create_random_diagonal_puzzle()
-        puzzle = zero_diagonal(puzzle)
         puzzle = shift_diagonal_puzzle(puzzle)
-   
+        #puzzle = zero_diagonal(puzzle)
+        #puzzle = create_random_puzzle()
+        
         status, csp = try_to_solve(puzzle)
-    
+        
         if status:
             puzzle = list(itertools.repeat(0, 81))
-
+            
             for i,v in enumerate(csp.vars):
                 puzzle[i] =  v.get_assigned_value()
             pzs.append(puzzle)
@@ -176,7 +176,10 @@ if __name__ == '__main__':
             print('Puzzle synthesis failed')
         print('Finishing puzzle at {}'.format(datetime.now()))
 
-        
+
     for p in pzs:
         print(p)
+if __name__ == '__main__':
+    with timeout(seconds = 60*30):
+        t()
     
