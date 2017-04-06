@@ -53,6 +53,7 @@ def sudoku_model_1(initial_sudoku_puzzle):
     return csp
     
 def verify(initial_sudoku_puzzle):
+    
     for row in rows(initial_sudoku_puzzle):
         if len(set(cell for cell in row if cell != 0)) != len([cell for cell in row if cell != 0]):
             return False
@@ -65,7 +66,21 @@ def verify(initial_sudoku_puzzle):
     return True
     
 
-   
+def homogeneity(initial_sudoku_puzzle):
+    minimum = 10
+    maximum = 0
+    for row in rows(initial_sudoku_puzzle):
+        minimum = min( minimum, len(set(cell for cell in row if cell != 0))) 
+        maximum = max( maximum, len(set(cell for cell in row if cell != 0))) 
+
+    for column in columns(initial_sudoku_puzzle):
+        minimum = min( minimum, len(set(cell for cell in column if cell != 0))) 
+        maximum = max( maximum, len(set(cell for cell in column if cell != 0))) 
+        
+    for cage in cages(initial_sudoku_puzzle):
+        minimum = min( minimum, len(set(cell for cell in cage if cell != 0))) 
+        maximum = max( maximum, len(set(cell for cell in cage if cell != 0))) 
+    return maximum - minimum + 1
 
 def two_in_everything(initial_sudoku_puzzle):
     for row in rows(initial_sudoku_puzzle):
@@ -89,6 +104,26 @@ def create_random_diagonal_puzzle():
                                list(itertools.repeat(0, 9)),
                                list(itertools.repeat(0, 9)),
                                random.choice(list(itertools.permutations(range(1, 10))))])
+    
+def create_random_permuted_puzzle(puzzle):
+    new_rows = permute_by_3_group(rows(puzzle))
+    new_puzzle = list(itertools.chain.from_iterable(new_rows))
+    new_columns = permute_by_3_group(columns(puzzle))
+    new_puzzle = list(itertools.chain.from_iterable(new_columns))
+    new_columns = columns(new_puzzle)
+    return list(itertools.chain.from_iterable(new_columns))
+
+def permute_by_3_group(full_groups):
+    full_groups = list(full_groups)
+    first_group = [full_groups[0],full_groups[1],full_groups[2]]
+    second_group = [full_groups[3],full_groups[4],full_groups[5]]
+    third_group = [full_groups[6],full_groups[7],full_groups[8]]
+    
+    random.shuffle(first_group)
+    random.shuffle(second_group)
+    random.shuffle(third_group)
+    return list(itertools.chain.from_iterable([first_group,second_group,third_group]))
+
 
 def zero_diagonal(puzzle):
     puzzle_rows = list(rows(puzzle))
